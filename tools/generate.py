@@ -637,3 +637,111 @@ for s, (sid, area, city, tier, fmt, sqft) in enumerate(STORES):
                        sum(1 for c in money if c["truth"] == "phantom"),
                        sum(1 for c in conf if c["truth"]),
                        sum(1 for e in truth.values() if e["s"] == s and e["type"] == PHANTOM)))
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
+
+all_money = [checklist_out[st[0]]["items"][code] for st in STORES for code in checklist_out[st[0]]["money"]]
+all_pool = [c for s in range(S) for c in candidates[s]]
+active_ph = [e for e in truth.values() if e["type"] == PHANTOM]
+caught_ph = {(c["sku"], sid) for sid in checklist_out for c in
+             (checklist_out[sid]["items"][x] for x in checklist_out[sid]["money"]) if c["truth"] == "phantom"}
+
+# fixed 7-day rule: every ranged SKU with stock on the books and 7+ days without a sale
+rule = (k_run >= 7) & (stock_T > 0) & ranged
+rule_tp = sum(1 for i in np.nonzero(rule)[0] if int(i) in truth and truth[int(i)]["type"] == PHANTOM)
+rule_fp = sum(1 for i in np.nonzero(rule)[0] if int(i) not in truth)
+rule_p20 = []
+for s in range(S):
+    ii = [i for i in np.nonzero(rule)[0] if store_of[i] == s]
+    ii = sorted(ii, key=lambda i: -k_run[i])[:CHECKS]
+    rule_p20.append(sum(1 for i in ii if int(i) in truth) / max(1, len(ii)))
+pool_tp = sum(1 for c in all_pool if c["truth"] == "phantom")
+pool_fp = sum(1 for c in all_pool if not c["truth"])
+p20 = sum(1 for c in all_money if c["truth"]) / len(all_money)
+
+# value of every active true phantom at the same horizon, used for the capture share
+true_value = {}
+for e in active_ph:
+    i = e["i"]
+    a = sku_aisle[e["k"]]
+    rate = base[i] * season[T + 1, a] * promo[T + 1, e["k"]]
+    tc = days_to_count(i)
+    h = NOTICE * rate
+    true_value[(skus[e["k"]]["code"], STORES[e["s"]][0])] = (
+        rate, skus[e["k"]]["margin"], min(HORIZON_CAP, (1 - math.exp(-h * tc)) / h), rate * skus[e["k"]]["margin"] * min(HORIZON_CAP, (1 - math.exp(-h * tc)) / h))
+tv_total = sum(v[3] for v in true_value.values())
+
+
+def share_at(n):
+    got = 0
+    for s, st in enumerate(STORES):
+        walks = greedy_walks(candidates[s], n)
+        for c in (c for w in walks for c in w):
+            if c["truth"] == "phantom":
+                got += true_value.get((c["sku"], st[0]), (0, 0, 0, 0))[3]
+    return got / tv_total
+
+
+resolved_year = [e for e in events if e["type"] == PHANTOM and e["start"] > T - 365]
+per_store_day = len(resolved_year) / (S * 365)
+mean_rate = float(np.mean([v[0] for v in true_value.values()]))
+mean_margin = float(np.mean([v[1] for v in true_value.values()]))
+mean_days = float(np.mean([v[2] for v in true_value.values()]))
+shares = {n: share_at(n) for n in (5, 10, 20, 40)}
+
+det_lag = [ (dt.date.fromisoformat(c["detected"]) - dt.date.fromisoformat(c["truthStart"])).days
+            for c in all_pool if c["truth"] == "phantom"]
+
+per_aisle = []
+for a in range(N_AISLES):
+    per_aisle.append(dict(
+        aisle=a + 1, name=AISLES[a][0],
+        active=sum(1 for e in active_ph if sku_aisle[e["k"]] == a),
+        flagged=sum(1 for c in all_pool if c["aisle"] == a + 1),
+        listed=sum(1 for c in all_money if c["aisle"] == a + 1),
+    ))
+
+hero = checklist_out["14"]["items"][checklist_out["14"]["money"][0]]
+metrics = dict(
+    listDate=LIST_DATE.isoformat(), lastDataDay=LAST_DAY.isoformat(), historyStart=DAY0.isoformat(),
+    stores=S, skus=K, seriesTotal=N, threshold=CONF, checks=CHECKS, cycleDays=CYCLE,
+    precisionAt20=round(p20, 3),
+    recall=round(len(caught_ph) / len(active_ph), 3),
+    activePhantoms=len(active_ph),
+    activeByType={TYPE_NAME[t]: sum(1 for e in truth.values() if e["type"] == t) for t in TYPE_NAME},
+    listedByType={t: sum(1 for c in all_money if c["type"] == t) for t in ("phantom", "misplaced", "delisted")},
+    medianDetectionLag=float(np.median(det_lag)) if det_lag else None,
+    perAisle=per_aisle,
+    comparison=dict(
+        rule=dict(alerts=int(rule.sum()), caught=rule_tp, falsePositives=rule_fp, precisionAt20=round(float(np.mean(rule_p20)), 3)),
+        model=dict(alerts=len(all_pool), caught=pool_tp, falsePositives=pool_fp, precisionAt20=round(p20, 3)),
+    ),
+    impact=dict(
+        phantomsPerStoreDay=round(per_store_day, 2), daysHidden=round(mean_days, 1),
+        dailyDemand=round(mean_rate, 1), unitMargin=round(mean_margin, 1), stores=S,
+        share=round(shares[20], 3), shareAt={str(n): round(v, 3) for n, v in shares.items()},
+    ),
+    workedExample=dict(store="14", **{k: hero[k] for k in
+                       ("sku", "name", "expected", "zeroDays", "pZero", "p", "rate", "margin", "daysLost", "ev", "daysToCount")},
+                       prior=checklist_out["14"]["prior"]),
+)
+
+OUT.mkdir(parents=True, exist_ok=True)
+dump = lambda name, obj: (OUT / name).write_text(json.dumps(obj, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")  # noqa: E731
+dump("stores.json", stores_out)
+dump("checklist.json", checklist_out)
+dump("series.json", dict(start=iso(T - SERIES_DAYS + 1), days=SERIES_DAYS, series=series_out))
+dump("metrics.json", metrics)
+
+print(f"history {DAY0} .. {LAST_DAY}, list date {LIST_DATE}  events={len(events)}  active={len(truth)}")
+print(f"{'store':<20}{'fmt':<13}{'pool':>5}{'list':>5}{'walks':>6}{'money':>9}{'conf':>9}{'drop':>8}{'real':>5}{'ph':>4}{'confreal':>9}{'active':>7}")
+for sid, area, fmt, pool, n, wk, mt, ct, hits, ph, chits, act in store_summ:
+    print(f"{sid + ' ' + area:<20}{fmt:<13}{pool:>5}{n:>5}{wk:>6}{mt:>9,}{ct:>9,}{mt - ct:>8,}{hits:>5}{ph:>4}{chits:>9}{act:>7}")
+print("precision@20", metrics["precisionAt20"], " recall", metrics["recall"], " lag", metrics["medianDetectionLag"])
+print("comparison", metrics["comparison"])
+print("impact", metrics["impact"])
+print("worked", metrics["workedExample"])
+for f in OUT.iterdir():
+    print(f"{f.name:<16}{f.stat().st_size / 1024:>8.0f} KB")
