@@ -297,3 +297,113 @@ for k in range(K):
         while t0 < H:
             promo[t0:t0 + 7, k] = rng.uniform(1.25, 1.7)
             t0 += int(rng.integers(45, 100))
+
+# ---------------------------------------------------------------------------
+# Simulate 18 months
+# ---------------------------------------------------------------------------
+
+N = S * K
+store_of = np.repeat(np.arange(S), K)
+sku_of = np.tile(np.arange(K), S)
+aisle_of = sku_aisle[sku_of]
+base = sku_rate[sku_of] * store_mult[store_of]
+r_disp = sku_r[sku_of]
+lead = rng.integers(2, 4, size=N)
+rop = np.ceil(base * (lead + 2)).astype(int) + 1
+outl = np.ceil(base * (lead + 12)).astype(int) + 3
+stock = rng.integers(rop + 1, outl + 1)
+order_day = np.full(N, -1)
+order_qty = np.zeros(N, dtype=int)
+last_receipt = np.full(N, -999)
+mode = np.zeros(N, dtype=int)
+ev_of = np.full(N, -1)
+del_start = np.zeros(N)
+del_len = np.ones(N)
+count_offset = rng.integers(0, CYCLE, size=(S, N_AISLES))
+count_off_series = count_offset[store_of, aisle_of]
+
+w_ph = np.sqrt(sku_rate)[None, :] * aisle_shrink[sku_aisle][None, :] * hot[:, sku_aisle]
+w_mi = np.sqrt(sku_rate)[None, :] * np.ones((S, 1))
+w_de = (1 / np.sqrt(sku_rate))[None, :] * np.ones((S, 1))
+WEIGHTS = {PHANTOM: w_ph, MISPLACED: w_mi, DELISTED: w_de}
+
+sales_h = np.zeros((N_DAYS, N), dtype=np.int32)
+stock_h = np.zeros((N_DAYS, N), dtype=np.int32)
+events = []
+
+
+def close(mask, t):
+    for i in np.nonzero(mask)[0]:
+        events[ev_of[i]]["end"] = t
+        ev_of[i] = -1
+
+
+for t in range(N_DAYS):
+    arrived = order_day == t
+    stock[arrived] += order_qty[arrived]
+    order_qty[arrived] = 0
+    order_day[arrived] = -1
+    last_receipt[arrived] = t
+    fixed = arrived & (mode == MISPLACED)        # a delivery puts stock back on the right shelf
+    close(fixed, t)
+    mode[fixed] = NORMAL
+
+    counted = ((t - count_off_series) % CYCLE) == 0
+    ph = counted & (mode == PHANTOM)
+    stock[ph] = 0                                # the count finds the shelf empty
+    close(ph, t)
+    mode[ph] = NORMAL
+    mi = counted & (mode == MISPLACED)
+    close(mi, t)
+    mode[mi] = NORMAL
+    de = counted & (mode == DELISTED)
+    close(de, t)
+    mode[de] = GONE
+
+    for s in range(S):
+        lo, hi = s * K, (s + 1) * K
+        for typ, lam in ((PHANTOM, lam_ph[s]), (MISPLACED, lam_mi[s]), (DELISTED, lam_de[s])):
+            n = rng.poisson(lam)
+            if n == 0:
+                continue
+            ok = mode[lo:hi] == NORMAL
+            if typ == PHANTOM:
+                ok &= (stock[lo:hi] > rop[lo:hi]) & (order_day[lo:hi] < 0)
+            elif typ == MISPLACED:
+                ok &= stock[lo:hi] > rop[lo:hi]
+            cand = np.nonzero(ok)[0]
+            if len(cand) == 0:
+                continue
+            w = WEIGHTS[typ][s, cand]
+            pick = rng.choice(cand, size=min(n, len(cand)), replace=False, p=w / w.sum())
+            for k in pick:
+                i = lo + k
+                mode[i] = typ
+                ev_of[i] = len(events)
+                events.append(dict(i=int(i), s=s, k=int(k), type=typ, start=t, end=None))
+                if typ == DELISTED:
+                    order_day[i] = -1
+                    order_qty[i] = 0
+                    del_start[i] = t
+                    del_len[i] = rng.integers(21, 29)
+
+    mult = weekday[t] * season[t, aisle_of] * promo[t, sku_of]
+    eff = base * mult
+    eff[mode == MISPLACED] *= .2
+    d = mode == DELISTED
+    eff[d] *= np.clip(1 - (t - del_start[d]) / del_len[d], 0, 1)
+    eff[(mode == PHANTOM) | (mode == GONE)] = 0
+    demand = rng.negative_binomial(r_disp, r_disp / (r_disp + eff))
+    sold = np.minimum(demand, stock)
+    stock -= sold
+    sales_h[t] = sold
+    stock_h[t] = stock
+
+    need = (stock <= rop) & (order_day < 0) & (mode != DELISTED) & (mode != GONE)
+    order_qty[need] = outl[need] - stock[need]
+    order_day[need] = t + lead[need]
+
+truth = {}
+for e in events:
+    if e["end"] is None:
+        truth[e["i"]] = e
