@@ -579,3 +579,61 @@ for i in np.nonzero(zr_cand | mi_cand)[0]:
         truth=TYPE_NAME[tr["type"]] if tr else None, truthStart=iso(tr["start"]) if tr else None,
         _i=int(i),
     ))
+
+
+def greedy_walks(pool, n):
+    by_aisle = defaultdict(list)
+    for c in sorted(pool, key=lambda c: -c["ev"]):
+        by_aisle[c["aisle"]].append(c)
+    walks, left = [], n
+    while left > 0 and by_aisle:
+        best = max(by_aisle, key=lambda a: sum(c["ev"] for c in by_aisle[a][:left]))
+        take = by_aisle.pop(best)[:left]
+        walks.append(take)
+        left -= len(take)
+    return walks
+
+
+stores_out, checklist_out, series_out = [], {}, {}
+store_summ = []
+for s, (sid, area, city, tier, fmt, sqft) in enumerate(STORES):
+    pool = candidates[s]
+    walks = greedy_walks(pool, CHECKS)
+    money = sorted([c for w in walks for c in w], key=lambda c: -c["ev"])
+    conf = sorted(pool, key=lambda c: -c["key"])[:CHECKS]
+    for wi, w in enumerate(walks):
+        for c in w:
+            c["walk"] = f"W{wi + 1}"
+    items = {c["sku"]: c for c in money + conf}
+    m_total = sum(c["ev"] for c in money)
+    c_total = sum(c["ev"] for c in conf)
+    walks_out = [dict(id=f"W{wi + 1}", aisle=w[0]["aisle"], aisleName=w[0]["aisleName"],
+                      skus=[c["sku"] for c in sorted(w, key=lambda c: -c["ev"])], total=sum(c["ev"] for c in w))
+                 for wi, w in enumerate(walks)]
+    walks_out.sort(key=lambda w: -w["total"])
+    for wi, w in enumerate(walks_out):
+        w["id"] = f"W{wi + 1}"
+        for code in w["skus"]:
+            items[code]["walk"] = w["id"]
+    for c in items.values():
+        i = c.pop("_i")
+        c.setdefault("walk", None)
+        series_out[f"{sid}:{c['sku']}"] = dict(
+            sales=sales_h[T - SERIES_DAYS + 1:, i].tolist(),
+            stock=stock_h[T - SERIES_DAYS + 1:, i].tolist(),
+        )
+    for c in pool:
+        c.pop("_i", None)
+    hits = sum(1 for c in money if c["truth"])
+    stores_out.append(dict(id=sid, name=f"Store {sid}, {area}", area=area, city=city, tier=tier, format=fmt, sqft=sqft,
+                           checks=len(money), walks=len(walks_out), recoverable=m_total))
+    checklist_out[sid] = dict(
+        pool=len(pool), money=[c["sku"] for c in money], confidence=[c["sku"] for c in conf],
+        moneyTotal=m_total, confidenceTotal=c_total, dropped=m_total - c_total,
+        walks=walks_out, items=items, prior=round(float(prior_ph[s]), 4),
+        precision=round(hits / len(money), 3) if money else None,
+    )
+    store_summ.append((sid, area, fmt, len(pool), len(money), len(walks_out), m_total, c_total, hits,
+                       sum(1 for c in money if c["truth"] == "phantom"),
+                       sum(1 for c in conf if c["truth"]),
+                       sum(1 for e in truth.values() if e["s"] == s and e["type"] == PHANTOM)))
