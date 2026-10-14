@@ -212,3 +212,88 @@ sku_rate = np.array([s["rate"] for s in skus])
 sku_r = np.array([s["r"] for s in skus])
 sku_margin = np.array([s["margin"] for s in skus])
 aisle_shrink = np.array([a[4] for a in AISLES])
+
+# ---------------------------------------------------------------------------
+# Stores
+# ---------------------------------------------------------------------------
+
+STORES = [
+    ("01", "Indiranagar", "Bengaluru", 1, "Hypermarket", 42000),
+    ("02", "Banjara Hills", "Hyderabad", 1, "Hypermarket", 45000),
+    ("03", "Kothrud", "Pune", 1, "Supermarket", 18000),
+    ("04", "Anna Nagar", "Chennai", 1, "Supermarket", 16000),
+    ("05", "Andheri West", "Mumbai", 1, "Supermarket", 14000),
+    ("06", "Gachibowli", "Hyderabad", 1, "Express", 4500),
+    ("07", "Whitefield", "Bengaluru", 1, "Supermarket", 20000),
+    ("08", "Velachery", "Chennai", 1, "Hypermarket", 40000),
+    ("09", "Powai", "Mumbai", 1, "Express", 4000),
+    ("10", "Saravanampatti", "Coimbatore", 2, "Supermarket", 15000),
+    ("11", "Dharampeth", "Nagpur", 2, "Supermarket", 14000),
+    ("12", "MVP Colony", "Visakhapatnam", 2, "Supermarket", 15000),
+    ("13", "Vijay Nagar", "Indore", 2, "Hypermarket", 38000),
+    ("14", "Koramangala", "Bengaluru", 1, "Hypermarket", 48000),
+    ("15", "Gokulam", "Mysuru", 2, "Supermarket", 12000),
+    ("16", "Vidyanagar", "Hubballi", 3, "Supermarket", 11000),
+    ("17", "Hanamkonda", "Warangal", 3, "Supermarket", 10000),
+    ("18", "Fairlands", "Salem", 3, "Express", 3800),
+    ("19", "College Road", "Nashik", 2, "Supermarket", 13000),
+    ("20", "Tilak Road", "Tirupati", 3, "Express", 3500),
+    ("21", "Jayanagar", "Bengaluru", 1, "Express", 4200),
+    ("22", "Kukatpally", "Hyderabad", 1, "Hypermarket", 44000),
+    ("23", "Baner", "Pune", 1, "Express", 4400),
+    ("24", "Adyar", "Chennai", 1, "Supermarket", 15000),
+    ("25", "Thane West", "Thane", 1, "Hypermarket", 41000),
+]
+S = len(STORES)
+FMT_DEMAND = {"Hypermarket": 1.6, "Supermarket": 1.0, "Express": .45}
+FMT_PHANTOM = {"Hypermarket": 1.5, "Supermarket": 1.0, "Express": .55}
+TIER_DEMAND = {1: 1.0, 2: .9, 3: .8}
+
+store_mult = np.array([FMT_DEMAND[s[4]] * TIER_DEMAND[s[3]] * rng.uniform(.9, 1.1) for s in STORES])
+lam_ph = np.array([FMT_PHANTOM[s[4]] * rng.uniform(.6, 1.4) for s in STORES])
+lam_mi = lam_ph * .3
+lam_de = np.full(S, .04)
+hot = np.ones((S, N_AISLES))
+for s in range(S):
+    hot[s, rng.choice(N_AISLES, size=3, replace=False)] = 3.0   # backroom overflow, poor shelf discipline
+idx = {s[0]: i for i, s in enumerate(STORES)}
+lam_ph[idx["14"]] = 1.9                    # the hero store: big, busy, leaky
+lam_ph[idx["07"]] = .7                     # Whitefield: re-planogrammed in September,
+lam_mi[idx["07"]] = 1.6                    # so things are on the wrong shelf rather than missing
+lam_ph[idx["21"]] = .2                     # Jayanagar: tight store, the abstention case
+lam_mi[idx["21"]] = .05
+
+# ---------------------------------------------------------------------------
+# Multipliers: weekday, season, promo
+# ---------------------------------------------------------------------------
+
+H = N_DAYS + FUTURE
+wd_raw = np.array([.92, .88, .9, .95, 1.05, 1.2, 1.1])        # Mon..Sun
+wd_raw /= wd_raw.mean()
+weekday = np.array([wd_raw[day(t).weekday()] for t in range(H)])
+
+season = np.ones((H, N_AISLES))
+diwali = [dt.date(2024, 11, 1), dt.date(2025, 10, 20)]
+FESTIVE = {2: .35, 4: .2, 5: .3, 7: .25, 1: .15, 3: .1}       # oils, spices, sugar, snacks, flours, pulses
+for t in range(H):
+    d = day(t)
+    doy = d.timetuple().tm_yday
+    season[t] *= 1 + .05 * math.sin(2 * math.pi * (doy - 80) / 365)
+    if d.month in (4, 5, 6):
+        season[t, 11] *= 1.4
+    if d.month in (7, 8, 9):
+        season[t, 6] *= 1.1
+    for dw in diwali:
+        gap = (dw - d).days
+        if 0 <= gap <= 21:
+            ramp = 1 - gap / 21
+            for a, lift in FESTIVE.items():
+                season[t, a] *= 1 + lift * ramp
+
+promo = np.ones((H, K))
+for k in range(K):
+    if rng.random() < .3:
+        t0 = int(rng.integers(0, 60))
+        while t0 < H:
+            promo[t0:t0 + 7, k] = rng.uniform(1.25, 1.7)
+            t0 += int(rng.integers(45, 100))
