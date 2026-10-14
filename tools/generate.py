@@ -407,3 +407,175 @@ truth = {}
 for e in events:
     if e["end"] is None:
         truth[e["i"]] = e
+
+# ---------------------------------------------------------------------------
+# Score the morning list
+# ---------------------------------------------------------------------------
+
+# store-level prior: share of SKU-days spent as a phantom, learned from the last year of count findings
+prior_ph = np.zeros(S)
+prior_mi = np.zeros(S)
+for s in range(S):
+    for typ, arr in ((PHANTOM, prior_ph), (MISPLACED, prior_mi)):
+        found = [e for e in events if e["s"] == s and e["type"] == typ and e["end"] is not None and e["end"] > T - 365]
+        arr[s] = sum(e["end"] - max(e["start"], T - 365) for e in found) / (K * 365)
+prior_ph = np.clip(prior_ph, .002, .1)
+prior_mi = np.clip(prior_mi, .001, .1)
+logit = lambda p: np.log(p / (1 - p))  # noqa: E731
+
+w0 = T - WINDOW + 1
+sales_w = sales_h[w0:]
+stock_w = stock_h[w0:]
+M_w = weekday[w0:T + 1, None] * season[w0:T + 1][:, aisle_of] * promo[w0:T + 1][:, sku_of]
+J = np.arange(WINDOW)[:, None]
+
+zero = (sales_w == 0) & (stock_w > 0)
+alive = np.ones(N, bool)
+k_run = np.zeros(N, dtype=int)
+for j in range(WINDOW - 1, -1, -1):
+    alive &= zero[j]
+    k_run += alive
+run_start = WINDOW - k_run                         # window index of the first zero day
+
+# demand model: base rate per series from 90 days of uncensored history before the silence
+b_end = np.minimum(WINDOW - 28, run_start)
+uncensored = (stock_w > 0) | (sales_w > 0)
+inwin = (J >= WINDOW - 120) & (J < b_end[None, :]) & uncensored
+S_sales = (sales_w * inwin).sum(0)
+S_mult = (M_w * inwin).sum(0)
+reliable = S_mult >= 30
+base_hat = np.where(reliable, S_sales / np.maximum(S_mult, 1e-9), 0)
+
+mu_w = base_hat[None, :] * M_w
+logP0_day = r_disp[None, :] * np.log(r_disp[None, :] / (r_disp[None, :] + mu_w))
+in_run = J >= run_start[None, :]
+log_pzero = (logP0_day * in_run).sum(0)            # log P(this many zero days in a row | NegBin)
+lo_ph = logit(prior_ph[store_of]) - log_pzero      # posterior log-odds it is a phantom
+post_ph = 1 / (1 + np.exp(-lo_ph))
+
+ranged = mode != GONE
+stock_T = stock_w[-1]
+zr_cand = (k_run >= 1) & (stock_T > 0) & ranged & reliable & (post_ph >= CONF)
+
+# misplaced: still selling, but at a fraction of what the model expects
+obs14 = sales_w[-14:].sum(0)
+exp14 = mu_w[-14:].sum(0)
+mi_test = (~zr_cand) & (k_run < 3) & (stock_T > 0) & ranged & reliable & (exp14 >= 4) & (obs14 > 0) & (obs14 < .4 * exp14)
+lo_mi = np.full(N, -np.inf)
+logcdf_mi = np.zeros(N)
+for i in np.nonzero(mi_test)[0]:
+    n = 14 * r_disp[i]
+    logcdf_mi[i] = stats.nbinom.logcdf(obs14[i], n, n / (n + exp14[i]))
+    lo_mi[i] = logit(prior_mi[store_of[i]]) - logcdf_mi[i]
+post_mi = 1 / (1 + np.exp(-lo_mi))
+mi_cand = mi_test & (post_mi >= CONF)
+
+
+def days_to_count(i):
+    off = count_off_series[i]
+    n = T + 1
+    while (n - off) % CYCLE:
+        n += 1
+    return n - T                                   # days from the list date, 1..35
+
+
+def receipt_before(i, t_end):
+    hits = np.nonzero(np.diff(stock_h[max(0, t_end - 120):t_end + 1, i]) > 0)[0]
+    return (max(0, t_end - 120) + hits[-1] + 1) if len(hits) else None
+
+
+def last_sale_before(i, t_end):
+    hits = np.nonzero(sales_h[:t_end + 1, i] > 0)[0]
+    return int(hits[-1]) if len(hits) else None
+
+
+def chance_phrase(p):
+    if p <= 1e-6:
+        return "less than once in a million"
+    n = 1 / p
+    if n >= 1000:
+        return f"about once in {round(n, -3 if n >= 10000 else -2):,.0f}"
+    return f"about once in {max(2, round(n)):,}"
+
+
+def fmt_rate(x):
+    return f"{x:.1f}" if x < 10 else f"{x:.0f}"
+
+
+candidates = defaultdict(list)
+for i in np.nonzero(zr_cand | mi_cand)[0]:
+    s, k = int(store_of[i]), int(sku_of[i])
+    sku = skus[k]
+    a = sku_aisle[k]
+    rate = float(base_hat[i] * season[T + 1, a] * promo[T + 1, k])
+    tc = days_to_count(i)
+    if zr_cand[i]:
+        rs = int(run_start[i])
+        pre = slice(max(0, rs - 21), rs)
+        pre_exp = mu_w[pre, i].sum()
+        pre_ratio = sales_w[pre, i].sum() / pre_exp if pre_exp > 0 else 1
+        no_delivery = (T - last_receipt[i]) > 28
+        typ = "delisted" if (rs >= 21 and pre_ratio < .5 and no_delivery) else "phantom"
+        post = float(post_ph[i])
+        key = float(lo_ph[i])
+        lost_rate = rate
+        cum = np.cumsum(logP0_day[rs:, i])
+        hit = np.nonzero(logit(prior_ph[s]) - cum >= logit(CONF))[0]
+        det_t = w0 + rs + int(hit[0]) if len(hit) else T
+        p_zero = float(math.exp(log_pzero[i]))
+    else:
+        typ = "misplaced"
+        post = float(post_mi[i])
+        key = float(lo_mi[i])
+        ratio = obs14[i] / exp14[i]
+        lost_rate = rate * (1 - ratio)
+        det_t = T
+        for back in range(1, 22):                  # earliest day the 14-day test has held since
+            tt = T - back
+            jj = tt - w0
+            o, e_ = sales_w[jj - 13:jj + 1, i].sum(), mu_w[jj - 13:jj + 1, i].sum()
+            n = 14 * r_disp[i]
+            lo = logit(prior_mi[s]) - stats.nbinom.logcdf(o, n, n / (n + e_)) if (e_ > 0 and o < .4 * e_) else -np.inf
+            if lo < logit(CONF):
+                break
+            det_t = tt
+        p_zero = float(math.exp(logcdf_mi[i]))
+    h = NOTICE * lost_rate
+    days_lost = min(HORIZON_CAP, (1 - math.exp(-h * tc)) / h if h > 0 else tc)
+    ev = post * lost_rate * sku["margin"] * days_lost
+
+    k_days = int(k_run[i])
+    st = int(stock_T[i])
+    ls = last_sale_before(i, T)
+    lr = receipt_before(i, T)
+    if typ == "phantom":
+        if k_days == 1:
+            reason = f"No sale yesterday against {fmt_rate(rate)} expected; system shows {st} on hand."
+        else:
+            reason = f"{k_days} zero-sale days; normally sells {fmt_rate(rate)} a day. System shows {st} on hand."
+        detail = (f"Last sale was {short(ls) if ls is not None else 'over 18 months ago'}. "
+                  f"At {fmt_rate(rate)} a day a silence this long happens by chance {chance_phrase(p_zero)}, "
+                  f"and with {st} still on the books no reorder will fire. Aisle {a + 1} is not counted again for {tc} days.")
+    elif typ == "delisted":
+        reason = f"Sales faded to zero over {max(3, round((k_days + 21) / 7))} weeks; no delivery since {short(lr) if lr else 'June'}."
+        detail = (f"Sales were running at {pre_ratio:.0%} of normal before they stopped {k_days} days ago, and no stock has "
+                  f"arrived since {short(lr) if lr else 'June'}. That pattern looks like a supplier stopping the line, not a "
+                  f"missing shelf: check before reordering.")
+    else:
+        ratio = obs14[i] / exp14[i]
+        reason = f"Selling {obs14[i] / 14:.1f} a day for 2 weeks against {fmt_rate(rate)} expected; stock still moving."
+        detail = (f"Two-week sales are at {ratio:.0%} of what the model expects, but they have not stopped, so the stock is "
+                  f"in the store. It is most likely on the wrong shelf or still in the backroom. "
+                  f"Odds of a dip this deep by chance: {chance_phrase(p_zero)}.")
+
+    tr = truth.get(int(i))
+    candidates[s].append(dict(
+        sku=sku["code"], name=sku["name"], aisle=int(a + 1), aisleName=AISLES[a][0],
+        type=typ, p=round(post, 4), key=round(key, 3), pZero=float(f"{p_zero:.3g}"),
+        rate=round(lost_rate, 2), expected=round(rate, 2), margin=sku["margin"], daysLost=round(days_lost, 1),
+        ev=int(round(ev)), zeroDays=k_days, stock=st, daysToCount=int(tc),
+        lastSale=iso(ls) if ls is not None else None, lastReceipt=iso(lr) if lr else None,
+        detected=iso(det_t), reason=reason, detail=detail,
+        truth=TYPE_NAME[tr["type"]] if tr else None, truthStart=iso(tr["start"]) if tr else None,
+        _i=int(i),
+    ))
