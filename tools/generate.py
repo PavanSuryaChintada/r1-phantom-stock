@@ -32,7 +32,7 @@ T = N_DAYS - 1
 FUTURE = 40                                      # multipliers are needed a little past T
 SERIES_DAYS = 120
 CHECKS = 20
-CONF = 0.80                                      # posterior needed to make the list
+CONF = 0.70                                      # posterior needed to make the list
 CYCLE = 35                                       # days between cycle counts of one aisle
 HORIZON_CAP = 30
 NOTICE = 0.003                                   # per unit of daily demand: chance a gap gets reported
@@ -187,7 +187,7 @@ for a, (aname, unit, mshare, staple, shrink, products) in enumerate(AISLES):
             skus.append(dict(
                 code=f"{stem}{pcode}", name=name, aisle=a + 1, price=round(pack_price, 2),
                 margin=round(max(0.5, pack_price * mshare * rng.uniform(.85, 1.15)), 2),
-                score=.8 * staple + .6 * PACK_POP[qi] + .8 * (1 - pi / len(products)) + rng.normal(0, .35),
+                score=.8 * staple + .6 * PACK_POP[qi] + .8 * (1 - pi / len(products)) - .45 * math.log10(pack_price) + rng.normal(0, .35),
             ))
 keep = np.sort(rng.choice(len(skus), size=800, replace=False))
 skus = [skus[i] for i in keep]
@@ -582,16 +582,11 @@ for i in np.nonzero(zr_cand | mi_cand)[0]:
 
 
 def greedy_walks(pool, n):
+    # take the n most valuable checks, then group them by aisle, richest aisle first
     by_aisle = defaultdict(list)
-    for c in sorted(pool, key=lambda c: -c["ev"]):
+    for c in sorted(pool, key=lambda c: -c["ev"])[:n]:
         by_aisle[c["aisle"]].append(c)
-    walks, left = [], n
-    while left > 0 and by_aisle:
-        best = max(by_aisle, key=lambda a: sum(c["ev"] for c in by_aisle[a][:left]))
-        take = by_aisle.pop(best)[:left]
-        walks.append(take)
-        left -= len(take)
-    return walks
+    return sorted(by_aisle.values(), key=lambda w: -sum(c["ev"] for c in w))
 
 
 stores_out, checklist_out, series_out = [], {}, {}
