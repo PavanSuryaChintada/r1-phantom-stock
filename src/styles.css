@@ -174,3 +174,27 @@ h1, h2, h3, p { margin: 0; }
 .stat-label { font-size: 11px; line-height: 14px; color: var(--ink-3); font-weight: 500; }
 
 .empty { padding: 24px 0; color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ table */
+
+.tbl { width: 100%; border-collapse: collapse; table-layout: fixed; background: var(--paper); border: var(--border); }
+.tbl th {
+  height: 32px; padding: 0 8px; text-align: left; font-size: 11px; line-height: 14px; font-weight: 500;
+  color: var(--ink-3); border-bottom: 1px solid var(--hairline-firm); white-space: nowrap; background: var(--paper);
+}
+.tbl th.r, .tbl td.r { text-align: right; }
+.tbl td {
+  height: var(--row-h); padding: 0 8px; border-bottom: 1px solid var(--hairline);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative;
+}
+.tbl tbody tr { cursor: pointer; transition: background-color 120ms; }
+.tbl tbody tr:hover { background: rgba(227, 239, 237, .4); }
+.tbl tbody tr[aria-selected='true'] { background: var(--action-weak); }
+.tbl tbody tr[aria-selected='true'] td.sel::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--action); }
+.tbl tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.tbl td.bar { padding: 0; width: 3px; background: var(--tone); }
+.tbl td.sku { font-family: var(--mono); font-weight: 500; }
+.tbl td.why { color: var(--ink-2); }
+.tbl td.ev { font-family: var(--mono); font-weight: 500; }
+.tbl tr.dismissed td:not(.bar) { color: var(--ink-3); }
+.tbl tr.dismissed td.sku, .tbl tr.dismissed td.ev { text-decoration: line-through; text-decoration-color: var(--hairline-firm); }
