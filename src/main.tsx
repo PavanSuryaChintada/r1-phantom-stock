@@ -18,7 +18,7 @@ import { AppProvider } from './state'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route element={<Shell />}>
             <Route index element={<MorningList />} />

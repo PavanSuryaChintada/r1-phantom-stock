@@ -112,6 +112,7 @@ h1, h2, h3, p { margin: 0; }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); padding: 0 8px; }
 .btn.ghost:hover { background: var(--sunken); color: var(--ink); }
 .btn.icon { width: 32px; padding: 0; }
+.btn:disabled { color: var(--ink-3); cursor: default; background: transparent; }
 
 .seg { display: inline-flex; border: 1px solid var(--hairline-firm); background: var(--paper); }
 .seg button {
@@ -245,7 +246,7 @@ h1, h2, h3, p { margin: 0; }
 /* ------------------------------------------------------------------ walks */
 
 .walks-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
-.walk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 1200px; }
+.walk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 1200px; align-items: start; }
 .walk { background: var(--paper); border: var(--border); padding: 16px; break-inside: avoid; }
 .walk-title { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: var(--border); }
 .walk-title .mono { font-weight: 500; }
