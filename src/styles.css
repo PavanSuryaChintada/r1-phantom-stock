@@ -308,3 +308,74 @@ h1, h2, h3, p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* ------------------------------------------------------------------ brand, inputs */
+
+.brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+.brand strong { display: block; font-size: 15px; line-height: 20px; font-weight: 600; }
+.brand .meta { display: block; }
+.btn.lg { height: 40px; padding: 0 24px; }
+.btn.block { width: 100%; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.input { height: 40px; padding: 0 12px; border: 1px solid var(--hairline-firm); background: var(--paper); color: var(--ink); }
+.input:hover { border-color: var(--ink-3); }
+.input::placeholder { color: var(--ink-3); }
+.tbl.compact td { height: 32px; }
+.lp-h3 { font-size: 15px; line-height: 20px; font-weight: 600; }
+
+/* ------------------------------------------------------------------ login */
+
+.login { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); background: var(--paper); }
+.login-main { display: flex; justify-content: center; padding: 48px 24px; }
+.login-box { width: 100%; max-width: 420px; }
+.login-form { display: grid; gap: 16px; margin-top: 24px; }
+.login-fail { color: var(--ink-2); padding-left: 12px; border-left: 3px solid var(--muted-fail); }
+.creds { margin-top: 32px; padding-top: 24px; border-top: var(--border); display: grid; gap: 8px; }
+.creds .label { margin-bottom: 4px; }
+.cred {
+  display: grid; gap: 4px; width: 100%; text-align: left; padding: 12px 16px; cursor: pointer;
+  background: var(--paper); border: 1px solid var(--hairline-firm); border-left: 3px solid var(--action);
+  transition: background-color 120ms;
+}
+.cred:hover { background: var(--action-weak); }
+.cred-top { display: flex; align-items: center; gap: 8px; }
+.cred-go { margin-left: auto; color: var(--action); font-weight: 500; font-size: 12px; }
+.cred-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; flex-wrap: wrap; }
+.login-side { background: var(--sunken); border-left: var(--border); padding: 48px 32px; display: flex; flex-direction: column; }
+.login-side .chip { align-self: flex-start; background: var(--paper); }
+.login-steps { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 16px; }
+.login-steps li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; }
+.login-steps li > .mono { color: var(--action); font-weight: 500; }
+.login-steps p { margin-top: 4px; }
+.login-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 32px 0 0; padding-top: 24px; border-top: 1px solid var(--hairline-firm); }
+.login-figs dt { font-size: 24px; line-height: 32px; font-weight: 600; color: var(--action); }
+.login-figs dd { margin: 0; }
+.login-back { margin-top: auto; padding-top: 32px; color: var(--ink-2); }
+
+@media (max-width: 900px) {
+  .login { grid-template-columns: 1fr; }
+  .login-side { border-left: 0; border-top: var(--border); padding: 32px 24px; }
+}
+
+/* ------------------------------------------------------------------ walkthrough */
+
+.tour { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+.tour-dim { position: fixed; background: rgba(20, 32, 43, .48); pointer-events: auto; }
+.tour-ring { position: fixed; border: 2px solid var(--action); pointer-events: none; }
+.tour-card { position: fixed; background: var(--paper); box-shadow: var(--overlay-shadow); padding: 16px; pointer-events: auto; z-index: 71; }
+.tour-progress { display: flex; gap: 4px; margin-bottom: 12px; }
+.tour-progress span { flex: 1; height: 3px; background: var(--hairline); }
+.tour-progress span.on { background: var(--action); }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.tour-actions .spacer { flex: 1; }
+.tour-actions .btn.ghost { padding-left: 0; }
+
+/* ------------------------------------------------------------------ shell additions */
+
+.rail-name { text-decoration: none; color: var(--ink); display: block; }
+.rail-user { display: grid; gap: 4px; padding: 12px 16px; border-top: 1px solid var(--hairline-firm); }
+.rail-user strong { font-weight: 500; }
+.rail-user button { justify-self: start; padding: 0; border: 0; background: none; color: var(--action); cursor: pointer; font-size: 12px; }
+.rail-user button:hover { text-decoration: underline; }
+.store-fixed { font-weight: 500; padding: 0 8px; display: inline-flex; gap: 8px; align-items: baseline; }
+.rank-wrap { display: inline-flex; align-items: center; gap: 16px; }
