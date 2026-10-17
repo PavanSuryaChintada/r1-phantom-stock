@@ -19,10 +19,11 @@ interface Props<T> {
   selected?: string | null
   rowClass?: (row: T) => string | undefined
   label: string
+  className?: string
 }
 
 /** Tab into the table, arrows move between rows, Enter opens. Leftmost cell is the 3px status ribbon. */
-export function Table<T>({ rows, columns, rowKey, tone, onOpen, selected, rowClass, label }: Props<T>) {
+export function Table<T>({ rows, columns, rowKey, tone, onOpen, selected, rowClass, label, className }: Props<T>) {
   const refs = useRef<(HTMLTableRowElement | null)[]>([])
   const focusRow = (i: number) => refs.current[Math.max(0, Math.min(rows.length - 1, i))]?.focus()
   const selIndex = rows.findIndex((r) => rowKey(r) === selected)
@@ -39,7 +40,7 @@ export function Table<T>({ rows, columns, rowKey, tone, onOpen, selected, rowCla
   }
 
   return (
-    <table className="tbl" aria-label={label}>
+    <table className={`tbl${className ? ` ${className}` : ''}`} aria-label={label}>
       <colgroup>
         <col style={{ width: 3 }} />
         {columns.map((c) => (
