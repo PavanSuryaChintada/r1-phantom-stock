@@ -257,3 +257,20 @@ h1, h2, h3, p { margin: 0; }
 .cbox { appearance: none; -webkit-appearance: none; margin: 0; width: 14px; height: 14px; border: 1px solid var(--ink-2); background: var(--paper); cursor: pointer; display: grid; place-content: center; }
 .cbox:checked { background: var(--action); border-color: var(--action); }
 .cbox:checked::after { content: ''; width: 4px; height: 8px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: translateY(-1px) rotate(45deg); }
+
+/* ------------------------------------------------------------------ method */
+
+.prose { max-width: 680px; }
+.prose > * + * { margin-top: 24px; }
+.prose p { color: var(--ink-2); max-width: 64ch; }
+.prose p + p { margin-top: 12px; }
+.formula { background: var(--sunken); padding: 16px; font-family: var(--mono); font-size: 13px; line-height: 22px; white-space: pre; overflow-x: auto; }
+.sunken { background: var(--sunken); padding: 16px; }
+.sunken ul { margin: 8px 0 0; padding-left: 16px; }
+.sunken li + li { margin-top: 8px; }
+.plain { width: 100%; border-collapse: collapse; background: var(--paper); border: var(--border); }
+.plain th, .plain td { padding: 8px 12px; border-bottom: var(--border); text-align: left; }
+.plain th { font-size: 11px; line-height: 14px; font-weight: 500; color: var(--ink-3); }
+.plain td.r, .plain th.r { text-align: right; }
+.plain td.num { font-family: var(--mono); }
+.plain tr:last-child td { border-bottom: 0; }
