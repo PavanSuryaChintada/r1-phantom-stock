@@ -30,7 +30,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: '/app',
     target: '[data-tour="stats"]',
     title: 'Today at a glance',
-    body: `${s14.money.length} checks in ${s14.walks.length} aisle walks, worth ${inr(s14.moneyTotal)}. The last figure fills in as checks are verified against ground truth.`,
+    body: `${s14.money.length} checks worth ${inr(s14.moneyTotal)}. The tiles show the value under each ranking, the mix of issues, which aisles hold the money (click one to filter), and how many checks are done.`,
   },
   {
     route: '/app',
@@ -42,7 +42,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: '/app',
     target: '.tbl tbody tr:first-child',
     title: 'Read a row',
-    body: 'Severity ribbon on the left, then SKU, aisle, confidence, rupees at risk and a plain-English reason. Status is always a square plus words, never colour alone.',
+    body: 'Each row shows the last 30 days of sales with the silence underlined in red, a confidence meter, rupees at risk as a bar, and the reason in plain English. Status is always a square plus words.',
   },
   {
     route: '/app',
