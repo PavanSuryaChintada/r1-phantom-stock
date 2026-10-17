@@ -23,6 +23,12 @@ export function Method() {
   const ex = list.money.map((s) => list.items[s]).find((c) => c.type === 'phantom' && c.p < 0.99) ?? list.items[list.money[0]]
   const store = storeById(storeId)
   const { rule, model } = metrics.comparison
+  const PAIRS: [string, number, number, (v: number) => string, string][] = [
+    ['Alerts fired', rule.alerts, model.alerts, int, 'fewer is better'],
+    ['True phantoms caught', rule.caught, model.caught, int, 'more is better'],
+    ['False positives', rule.falsePositives, model.falsePositives, int, 'fewer is better'],
+    ['Precision@20', rule.precisionAt20, model.precisionAt20, (v) => pct(v), 'higher is better'],
+  ]
 
   return (
     <div className="page">
@@ -52,20 +58,53 @@ export function Method() {
         </section>
 
         <section>
-          <h2 className="section" style={{ marginBottom: 12 }}>Worked example</h2>
-          <table className="plain">
-            <tbody>
-              <tr><td>Store, SKU</td><td className="num r">{store.name} · {ex.sku}</td></tr>
-              <tr><td>Expected demand</td><td className="num r">{rate(ex.expected)} a day</td></tr>
-              <tr><td>Zero-sale days in a row</td><td className="num r">{ex.zeroDays}</td></tr>
-              <tr><td>p_zero_run — chance of that silence if the shelf is fine</td><td className="num r">{sci(ex.pZero)}</td></tr>
-              <tr><td>Store prior</td><td className="num r">{pct(list.prior, 1)}</td></tr>
-              <tr><td>p_phantom</td><td className="num r">{conf(ex.p)}</td></tr>
-              <tr><td>Unit margin</td><td className="num r">{inrPrecise(ex.margin)}</td></tr>
-              <tr><td>Days until aisle {ex.aisle} is counted → days lost</td><td className="num r">{ex.daysToCount} → {ex.daysLost.toFixed(1)}</td></tr>
-              <tr><td><strong>Expected value</strong></td><td className="num r"><strong>{inr(ex.ev)}</strong></td></tr>
-            </tbody>
-          </table>
+          <h2 className="section" style={{ marginBottom: 4 }}>Worked example</h2>
+          <p className="meta" style={{ marginBottom: 12 }}>
+            {store.name} · <span className="mono">{ex.sku}</span>, {ex.name}
+          </p>
+          <div className="evidence">
+            <div>
+              <span className="label">Silent</span>
+              <span className="mono">{ex.zeroDays} {ex.zeroDays === 1 ? 'day' : 'days'}</span>
+            </div>
+            <span className="evidence-arrow" aria-hidden="true">→</span>
+            <div>
+              <span className="label">Chance if the shelf is fine</span>
+              <span className="mono">{sci(ex.pZero)}</span>
+            </div>
+            <span className="evidence-arrow" aria-hidden="true">→</span>
+            <div>
+              <span className="label">With store prior {pct(list.prior, 1)}</span>
+              <span className="mono">p = {conf(ex.p)}</span>
+            </div>
+          </div>
+          <div className="equation" role="img"
+            aria-label={`${conf(ex.p)} times ${rate(ex.rate)} a day times ${ex.daysLost.toFixed(1)} days times ${inrPrecise(ex.margin)} equals ${inr(ex.ev)}`}>
+            <div className="eq-tile">
+              <span className="eq-val">{conf(ex.p)}</span>
+              <span className="eq-lbl">probability it is phantom</span>
+            </div>
+            <span className="eq-op">×</span>
+            <div className="eq-tile">
+              <span className="eq-val">{rate(ex.rate)}</span>
+              <span className="eq-lbl">units a day</span>
+            </div>
+            <span className="eq-op">×</span>
+            <div className="eq-tile">
+              <span className="eq-val">{ex.daysLost.toFixed(1)}</span>
+              <span className="eq-lbl">days hidden (count in {ex.daysToCount})</span>
+            </div>
+            <span className="eq-op">×</span>
+            <div className="eq-tile">
+              <span className="eq-val">{inrPrecise(ex.margin)}</span>
+              <span className="eq-lbl">unit margin</span>
+            </div>
+            <span className="eq-op">=</span>
+            <div className="eq-tile result">
+              <span className="eq-val">{inr(ex.ev)}</span>
+              <span className="eq-lbl">at risk</span>
+            </div>
+          </div>
         </section>
 
         <section data-tour="compare">
@@ -73,21 +112,31 @@ export function Method() {
           <p className="meta" style={{ marginBottom: 12 }}>
             All {metrics.stores} stores, morning of {dayLabel(metrics.listDate)}, scored against injected ground truth.
           </p>
-          <table className="plain">
-            <thead>
-              <tr>
-                <th />
-                <th className="r">Fixed 7-day rule</th>
-                <th className="r">Per-SKU probability</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Alerts fired</td><td className="num r">{int(rule.alerts)}</td><td className="num r">{int(model.alerts)}</td></tr>
-              <tr><td>True phantoms caught</td><td className="num r">{int(rule.caught)}</td><td className="num r">{int(model.caught)}</td></tr>
-              <tr><td>False positives</td><td className="num r">{int(rule.falsePositives)}</td><td className="num r">{int(model.falsePositives)}</td></tr>
-              <tr><td>Precision@20</td><td className="num r">{pct(rule.precisionAt20)}</td><td className="num r"><strong>{pct(model.precisionAt20)}</strong></td></tr>
-            </tbody>
-          </table>
+          <div className="pairs">
+            {PAIRS.map(([label, a, b, fmt, better]) => {
+              const max = Math.max(a, b, 1e-9)
+              return (
+                <div key={label} className="pair">
+                  <span className="pair-label">
+                    {label}
+                    <span className="meta">{better}</span>
+                  </span>
+                  <div className="pair-bars">
+                    <span className="pair-row">
+                      <span className="pair-name">Fixed 7-day rule</span>
+                      <span className="pair-track"><span className="pair-fill rule" style={{ width: `${(a / max) * 100}%` }} /></span>
+                      <span className="mono">{fmt(a)}</span>
+                    </span>
+                    <span className="pair-row">
+                      <span className="pair-name"><strong>Per-SKU probability</strong></span>
+                      <span className="pair-track"><span className="pair-fill" style={{ width: `${(b / max) * 100}%` }} /></span>
+                      <span className="mono"><strong>{fmt(b)}</strong></span>
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </section>
 
         <section>
