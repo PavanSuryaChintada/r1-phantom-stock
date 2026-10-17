@@ -26,6 +26,21 @@ export function MorningList() {
     setFilter('all')
   }, [storeId])
 
+  // walkthrough cues
+  useEffect(() => {
+    const on = (e: Event) => {
+      const cue = (e as CustomEvent<string>).detail
+      if (cue === 'reset' || cue === 'open-first') {
+        setRank('money')
+        setFilter('all')
+      }
+      if (cue === 'open-first') setOpen(list.money[0] ?? null)
+      if (cue === 'reset' || cue === 'close') setOpen(null)
+    }
+    window.addEventListener('phantom:tour', on)
+    return () => window.removeEventListener('phantom:tour', on)
+  }, [list])
+
   const ranked: Row[] = useMemo(
     () => (rank === 'money' ? list.money : list.confidence).map((sku, i) => ({ ...list.items[sku], rank: i + 1 })),
     [list, rank],
@@ -62,13 +77,13 @@ export function MorningList() {
   return (
     <div className="page">
       <div className="ml-head">
-        <div>
+        <div data-tour="list-head">
           <h1 className="display">Morning check list</h1>
           <p className="meta">
             {store.name} · {store.format}, {store.city} · {dayLabel(metrics.listDate)}
           </p>
         </div>
-        <div className="stats">
+        <div className="stats" data-tour="stats">
           <Stat value={n} label="checks" />
           <Stat value={list.walks.length} label="aisle walks" />
           <Stat value={inr(list.moneyTotal)} label="recoverable today" accent />
@@ -77,6 +92,7 @@ export function MorningList() {
       </div>
 
       <div className="ml-controls">
+        <span data-tour="filters">
         <SegmentedControl<Filter>
           label="Filter by issue"
           value={filter}
@@ -88,7 +104,9 @@ export function MorningList() {
             { value: 'delisted', label: 'Delisted', count: count('delisted') },
           ]}
         />
+        </span>
         <span className="spacer" />
+        <span className="rank-wrap" data-tour="rank">
         <span className="rank-label" id="rank-label">
           Rank by
         </span>
@@ -102,6 +120,7 @@ export function MorningList() {
             { value: 'confidence', label: 'Confidence' },
           ]}
         />
+        </span>
       </div>
 
       {list.pool < metrics.checks && (

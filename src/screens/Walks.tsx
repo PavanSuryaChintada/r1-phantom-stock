@@ -24,7 +24,7 @@ export function Walks() {
         </Button>
       </div>
 
-      <div className="walk-grid">
+      <div className="walk-grid" data-tour="walks">
         {list.walks.map((w) => {
           const done = w.skus.filter((s) => walked[`${storeId}:${s}`]).length
           return (

@@ -68,7 +68,7 @@ export function Method() {
           </table>
         </section>
 
-        <section>
+        <section data-tour="compare">
           <h2 className="section" style={{ marginBottom: 4 }}>Fixed rule vs per-SKU probability</h2>
           <p className="meta" style={{ marginBottom: 12 }}>
             All {metrics.stores} stores, morning of {dayLabel(metrics.listDate)}, scored against injected ground truth.

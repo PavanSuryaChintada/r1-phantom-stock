@@ -88,8 +88,10 @@ export function Impact() {
           </div>
         </div>
         <div>
+          <div data-tour="total">
           <div className="total-fig">{inrShort(total)}</div>
           <div className="stat-label">margin recovered per year, all stores</div>
+          </div>
           <p className="arith">
             {v.perDay.toFixed(2)} phantoms/store/day × {v.days.toFixed(1)} days × {v.demand.toFixed(1)} units × ₹
             {v.margin.toFixed(1)} × {v.stores} stores × 365 × {Math.round(v.share * 100)}% = {inrShort(total)}
