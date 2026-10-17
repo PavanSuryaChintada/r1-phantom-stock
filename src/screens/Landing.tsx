@@ -6,8 +6,9 @@ import { SalesStockChart } from '../charts/SalesStockChart'
 import { Brand } from '../components/Brand'
 import { SegmentedControl } from '../components/SegmentedControl'
 import { StatusBar } from '../components/StatusBar'
+import { DataBar, Sparkline } from '../charts/Mini'
 import { checklists, getSeries, metrics, seriesStart, stores } from '../lib/data'
-import { conf, dayLabel, inr, inrShort, int, pct } from '../lib/format'
+import { dayLabel, inr, inrShort, int, pct } from '../lib/format'
 import { statusOf } from '../lib/status'
 import { TOUR_STEPS } from '../tour/steps'
 
@@ -58,16 +59,16 @@ function Preview() {
           <col style={{ width: 3 }} />
           <col style={{ width: 32 }} />
           <col />
-          <col style={{ width: 64 }} />
-          <col style={{ width: 88 }} />
-          <col style={{ width: 156 }} />
+          <col style={{ width: 108 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 140 }} />
         </colgroup>
         <thead>
           <tr>
             <th aria-label="Status bar" />
             <th className="r">#</th>
             <th>SKU</th>
-            <th className="r">Conf.</th>
+            <th>Last 30 days</th>
             <th className="r">₹ at risk</th>
             <th>Status</th>
           </tr>
@@ -81,8 +82,15 @@ function Preview() {
                 <td className={`bar tone-${st.tone}`} aria-hidden="true" />
                 <td className="r mono">{i + 1}</td>
                 <td className="sku">{code}</td>
-                <td className="r mono">{conf(c.p)}</td>
-                <td className="r ev">{inr(c.ev)}</td>
+                <td>
+                  {getSeries('14', code) && (
+                    <Sparkline values={getSeries('14', code)!.sales.slice(-30)} width={96} height={24}
+                      markDays={c.type === 'misplaced' ? 14 : Math.min(30, c.zeroDays)} tone={st.tone} />
+                  )}
+                </td>
+                <td className="r">
+                  <DataBar value={c.ev} max={s14.items[s14.money[0]].ev} label={inr(c.ev)} />
+                </td>
                 <td>
                   <StatusBar tone={st.tone} label={st.label} />
                 </td>
@@ -162,13 +170,34 @@ const STACK = [
   },
 ]
 
-const DIFF: [string, string, string, string][] = [
-  ['Flags a shelf when', '7 days pass without a sale', 'its score clears a cut-off', 'the silence is improbable for this SKU in this store'],
-  ['Ranks the list by', 'days silent', 'probability', 'rupees a check recovers'],
-  ['Slow movers', 'flagged constantly', 'long quiet runs look certain', 'need a proportionally longer silence'],
-  ['Misplaced or delisted', 'same alert', 'same alert', 'own test, own label'],
-  ['When evidence is thin', 'pads the list', 'pads the list', 'stops short of twenty'],
-  ['Explains a row with', 'the rule', 'a score', 'four numbers that multiply to rupees'],
+const TRAITS = ['Evidence bar set per SKU', 'Separates misplaced and delisted', 'Stops short when unsure', 'Explains every row in rupees', 'Ranks by value recovered']
+
+const APPROACHES = [
+  {
+    name: 'Fixed rule',
+    how: 'Flags any SKU with 7 days and no sale, longest silence first.',
+    precision: rule.precisionAt20,
+    alerts: rule.alerts,
+    value: null as number | null,
+    traits: [false, false, false, false, false],
+  },
+  {
+    name: 'Same model, ranked by confidence',
+    how: 'Per-SKU probability, then the most certain flags fill the list.',
+    precision: confPrecision,
+    alerts: model.alerts,
+    value: confAll,
+    traits: [true, true, true, false, false],
+  },
+  {
+    name: 'Phantom',
+    how: 'Per-SKU probability, then the twenty checks worth the most rupees.',
+    precision: metrics.precisionAt20,
+    alerts: model.alerts,
+    value: moneyAll,
+    traits: [true, true, true, true, true],
+    ours: true,
+  },
 ]
 
 export function Landing() {
@@ -307,41 +336,45 @@ export function Landing() {
             is to fill them with the checks that recover the most money — not the ones the model is most sure about.
           </p>
 
-          <div className="lp-scroll">
-            <table className="lp-diff">
-              <thead>
-                <tr>
-                  <th />
-                  <th>Fixed rule</th>
-                  <th>Same model, ranked by confidence</th>
-                  <th className="ours">Phantom</th>
-                </tr>
-              </thead>
-              <tbody>
-                {DIFF.map(([k, a, b, c]) => (
-                  <tr key={k}>
-                    <th scope="row">{k}</th>
-                    <td>{a}</td>
-                    <td>{b}</td>
-                    <td className="ours">{c}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <th scope="row">Precision@20, 25 stores</th>
-                  <td className="mono">{pct(rule.precisionAt20)}</td>
-                  <td className="mono">{pct(confPrecision)}</td>
-                  <td className="ours mono">{pct(metrics.precisionAt20)}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Value in the list slots</th>
-                  <td className="ink3">not ranked by value</td>
-                  <td className="mono">{inr(confAll)}</td>
-                  <td className="ours mono">
-                    <strong>{inr(moneyAll)}</strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="approaches">
+            {APPROACHES.map((a) => (
+              <article key={a.name} className={`approach${a.ours ? ' ours' : ''}`}>
+                <h3 className="lp-h3">{a.name}</h3>
+                <p className="lp-p" style={{ marginTop: 4 }}>{a.how}</p>
+                <dl className="approach-stats">
+                  <div>
+                    <dt>Precision@20</dt>
+                    <dd>
+                      <span className="approach-track"><span style={{ width: `${a.precision * 100}%` }} /></span>
+                      <span className="mono">{pct(a.precision)}</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Alerts, one morning</dt>
+                    <dd>
+                      <span className="approach-track"><span className="neutral" style={{ width: `${(a.alerts / rule.alerts) * 100}%` }} /></span>
+                      <span className="mono">{int(a.alerts)}</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Value in the list slots</dt>
+                    <dd>
+                      <span className="approach-track">{a.value !== null && <span style={{ width: `${(a.value / moneyAll) * 100}%` }} />}</span>
+                      <span className="mono">{a.value !== null ? inr(a.value) : 'not ranked'}</span>
+                    </dd>
+                  </div>
+                </dl>
+                <ul className="approach-traits">
+                  {TRAITS.map((t, i) => (
+                    <li key={t} className={a.traits[i] ? 'yes' : 'no'}>
+                      <span className="status-sq" aria-hidden="true" />
+                      {t}
+                      <span className="sr-only">{a.traits[i] ? ': yes' : ': no'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </div>
           <p className="meta" style={{ marginTop: 12 }}>
             Measured on one morning across all 25 simulated stores against injected ground truth. Ranking by confidence

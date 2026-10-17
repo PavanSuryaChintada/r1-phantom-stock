@@ -123,3 +123,24 @@ a.btn { text-decoration: none; }
   .lp-preview-head { flex-direction: column; align-items: flex-start; }
   .lp-preview .tbl col:nth-child(6), .lp-preview .tbl th:nth-child(6), .lp-preview .tbl td:nth-child(6) { display: none; }
 }
+
+/* approach cards */
+.approaches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 32px; }
+.approach { background: var(--canvas); border: var(--border); border-top: 3px solid var(--hairline-firm); padding: 24px; display: flex; flex-direction: column; }
+.approach.ours { background: var(--paper); border-color: var(--action); border-top-color: var(--action); }
+.approach.ours .lp-h3 { color: var(--action); }
+.approach-stats { margin: 24px 0 0; display: grid; gap: 16px; }
+.approach-stats dt { font-size: 11px; line-height: 14px; font-weight: 500; color: var(--ink-3); margin-bottom: 4px; }
+.approach-stats dd { margin: 0; display: grid; grid-template-columns: 1fr 96px; gap: 12px; align-items: center; }
+.approach-stats dd .mono { text-align: right; font-weight: 500; }
+.approach-track { height: 8px; background: var(--sunken); position: relative; display: block; }
+.approach-track span { position: absolute; inset: 0 auto 0 0; background: var(--hairline-firm); }
+.approach.ours .approach-track span { background: var(--action); }
+.approach-track span.neutral, .approach.ours .approach-track span.neutral { background: var(--ink-3); }
+.approach-traits { list-style: none; margin: 24px 0 0; padding: 16px 0 0; border-top: var(--border); display: grid; gap: 8px; }
+.approach-traits li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.approach-traits li .status-sq { width: 8px; height: 8px; }
+.approach-traits li.yes .status-sq { background: var(--ok); }
+.approach-traits li.no { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--hairline-firm); }
+.approach-traits li.no .status-sq { background: transparent; border: 1px solid var(--hairline-firm); }
+@media (max-width: 1000px) { .approaches { grid-template-columns: 1fr; } }
