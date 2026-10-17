@@ -24,6 +24,16 @@ npm run build      # static build in dist/
 No backend, no API calls, no network at runtime. Fonts are bundled. State resets on refresh by design, so a demo
 can be re-run cleanly.
 
+## Deploy to Vercel
+
+Import the repository at [vercel.com/new](https://vercel.com/new) and deploy; no environment variables are needed.
+`vercel.json` pins the settings (Vite, `npm ci`, `npm run build`, output `dist/`), rewrites every route to
+`index.html` so deep links like `/walks` survive a refresh, and caches hashed assets for a year. From the CLI:
+
+```bash
+npx vercel --prod
+```
+
 ## Screens
 
 | Route | What it shows |
