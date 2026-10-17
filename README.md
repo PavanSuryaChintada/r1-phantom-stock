@@ -34,14 +34,28 @@ Import the repository at [vercel.com/new](https://vercel.com/new) and deploy; no
 npx vercel --prod
 ```
 
+## Demo accounts
+
+Hard-coded; nothing leaves the browser. Click any account on the sign-in page to enter.
+
+| Account | Password | Sees |
+|---|---|---|
+| `judge@phantom.demo` | `demo2026` | All 25 stores, guided walkthrough starts automatically |
+| `manager.s14@phantom.demo` | `walk20` | Store 14, Koramangala only |
+| `ops.south@phantom.demo` | `zone25` | All 25 stores |
+
+The walkthrough (10 steps across every page) can be restarted from the top bar at any time.
+
 ## Screens
 
 | Route | What it shows |
 |---|---|
-| `/` | Morning check list: 20 ranked checks, issue filters, ranking toggle, SKU drawer with sales vs stock chart and score breakdown |
-| `/walks` | The same checks grouped into aisle walks, printable |
-| `/method` | The four-step method, the formula, a worked example, fixed 7-day rule vs per-SKU probability |
-| `/impact` | Annual rupees recovered, every input on a slider, diminishing returns at 5 / 10 / 20 / 40 checks |
+| `/` | Landing page: live ranking preview, results, the problem, how it differs, architecture, end-to-end flow, stack |
+| `/login` | Sign-in with one-click demo credentials |
+| `/app` | Morning check list: 20 ranked checks, issue filters, ranking toggle, SKU drawer with sales vs stock chart and score breakdown |
+| `/app/walks` | The same checks grouped into aisle walks, printable |
+| `/app/method` | The four-step method, the formula, a worked example, fixed 7-day rule vs per-SKU probability |
+| `/app/impact` | Annual rupees recovered, every input on a slider, diminishing returns at 5 / 10 / 20 / 40 checks |
 
 ## Method
 
