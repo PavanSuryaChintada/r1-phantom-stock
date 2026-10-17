@@ -80,6 +80,11 @@ export function SkuDrawer({ check: c, storeId, onClose }: Props) {
             <p style={{ marginTop: 8 }}>
               <StatusBar tone={s.tone} label={s.label} bar />
             </p>
+            {d === 'verified' && (
+              <div style={{ marginTop: 8 }}>
+                <TruthTag c={c} />
+              </div>
+            )}
           </div>
           <Button variant="ghost" icon aria-label="Close" onClick={onClose}>
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
@@ -112,6 +117,7 @@ export function SkuDrawer({ check: c, storeId, onClose }: Props) {
             stock={series.stock}
             start={seriesStart}
             detected={c.detected}
+            zeroDays={c.type === 'misplaced' ? 0 : c.zeroDays}
             truthStart={d === 'verified' ? c.truthStart : null}
           />
         </section>
@@ -150,12 +156,6 @@ export function SkuDrawer({ check: c, storeId, onClose }: Props) {
         </h3>
         <p className="ink2">{c.detail}</p>
       </section>
-
-      {d === 'verified' && (
-        <section className="drawer-sec">
-          <TruthTag c={c} />
-        </section>
-      )}
     </Drawer>
   )
 }

@@ -5,6 +5,7 @@ interface Props {
   stock: number[]
   start: string
   detected: string
+  zeroDays?: number
   truthStart?: string | null
 }
 
@@ -22,7 +23,7 @@ function niceTop(max: number): number {
   return Math.max(3, step * 3)
 }
 
-export function SalesStockChart({ sales, stock, start, detected, truthStart }: Props) {
+export function SalesStockChart({ sales, stock, start, detected, zeroDays = 0, truthStart }: Props) {
   const n = sales.length
   const x = (i: number) => M.l + (i / (n - 1)) * PW
   const sTop = niceTop(Math.max(...sales))
@@ -71,6 +72,10 @@ export function SalesStockChart({ sales, stock, start, detected, truthStart }: P
 
       <path d={stockPath} fill="none" stroke="var(--ink-3)" strokeWidth="1.25" strokeDasharray="4 3" />
       <path d={salesPath} fill="none" stroke="var(--action)" strokeWidth="1.5" strokeLinejoin="round" />
+      {zeroDays > 0 && (
+        // the silence: the current run of zero-sale days, marked on the baseline
+        <line x1={x(Math.max(0, n - zeroDays - 0.5))} x2={x(n - 1)} y1={ys(0)} y2={ys(0)} stroke="var(--critical)" strokeWidth="3" />
+      )}
 
       {ti >= 0 && ti < n && (
         <g>
@@ -83,7 +88,8 @@ export function SalesStockChart({ sales, stock, start, detected, truthStart }: P
       {di >= 0 && di < n && (
         <g>
           <line x1={x(di)} x2={x(di)} y1={M.t - 14} y2={M.t + PH} stroke="var(--critical)" strokeWidth="1" />
-          <text x={flagRight ? x(di) + 4 : x(di) + 4} y={M.t - 16} textAnchor="start" style={{ fill: 'var(--critical)' }}>
+          <text x={flagRight ? x(di) - 4 : x(di) + 4} y={M.t - 16} textAnchor={flagRight ? 'end' : 'start'}
+            style={{ fill: 'var(--critical)' }}>
             Flagged {shortDate(detected)}
           </text>
         </g>
