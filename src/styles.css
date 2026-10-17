@@ -241,3 +241,19 @@ h1, h2, h3, p { margin: 0; }
 .abstain { margin: 0 0 8px; color: var(--ink-2); padding-left: 12px; border-left: 3px solid var(--hairline-firm); }
 .caption { margin-top: 8px; color: var(--ink-2); }
 .caption strong { font-weight: 500; color: var(--ink); }
+
+/* ------------------------------------------------------------------ walks */
+
+.walks-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; }
+.walk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 1200px; }
+.walk { background: var(--paper); border: var(--border); padding: 16px; break-inside: avoid; }
+.walk-title { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: var(--border); }
+.walk-title .mono { font-weight: 500; }
+.walk-row { display: grid; grid-template-columns: 14px 136px 1fr 80px; gap: 12px; align-items: center; height: 32px; border-bottom: 1px solid var(--canvas); }
+.walk-row:last-child { border-bottom: 0; }
+.walk-row.done .mono, .walk-row.done .wname { color: var(--ink-3); text-decoration: line-through; }
+.walk-row .wname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+
+.cbox { appearance: none; -webkit-appearance: none; margin: 0; width: 14px; height: 14px; border: 1px solid var(--ink-2); background: var(--paper); cursor: pointer; display: grid; place-content: center; }
+.cbox:checked { background: var(--action); border-color: var(--action); }
+.cbox:checked::after { content: ''; width: 4px; height: 8px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: translateY(-1px) rotate(45deg); }
